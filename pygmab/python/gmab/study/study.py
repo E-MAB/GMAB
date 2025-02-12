@@ -1,5 +1,7 @@
 from collections.abc import Callable
 
+import numpy as np
+
 from gmab import logging
 from gmab.gmab import Gmab
 
@@ -17,7 +19,9 @@ class Study:
 
     """
 
-    def __init__(self) -> None:
+    def __init__(self, seed: int | None) -> None:
+        self.seed: int | None = seed
+        self._rng: np.random.Generator = np.random.default_rng(self.seed)
         self._best_trial: dict | None = None
 
     @property
@@ -55,11 +59,28 @@ class Study:
                 The number of simulations per trial. A trial will continue until the
                 number of elapsed simulations reaches `n_simulations`.
         """
+        # ToDo: Propagate seed to Rust (32 or 64 bit?)
+        # algo_seed = self._rng.integers(0, 2**64)
+        # gmab = Gmab(algo_seed, func, bounds)
         gmab = Gmab(func, bounds)
         self._best_trial = gmab.optimize(n_simulations)
         _logger.info("completed")
 
 
-def create_study() -> Study:
-    """Create a new :class:`~gmab.study.Study`."""
-    return Study()
+def create_study(seed: int | None = None) -> Study:
+    """
+    Create a new :class:`~gmab.study.Study`.
+
+    Args:
+        seed (int, optional):
+            The seed for the random number generator. Ensures reproducibility of random
+            algorithm progression if provided. If None (default), the system's entropy
+            or time is used to initialize the random generator.
+
+    Returns:
+        Study: A new instance of the :class:`~gmab.study.Study`.
+
+    """
+    if seed is None:
+        _logger.warning("Seed not provided. Results will not be reproducible.")
+    return Study(seed)
