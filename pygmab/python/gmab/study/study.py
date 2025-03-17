@@ -2,64 +2,108 @@ from collections.abc import Callable
 
 from gmab import logging
 from gmab.gmab import Gmab
+from gmab.params import BaseParam
 
 _logger = logging.get_logger(__name__)
 
 
 class Study:
-    """A Study corresponds to an optimization task, i.e. a set of trials.
+    """
+    A Study represents an optimization task consisting of a set of trials.
 
-    This objecht provides interfaces to optimize an objective within its bounds,
-    and to set/get attributes of the study itself that are user-defined.
+    This class provides interfaces to optimize an objective function within specified bounds
+    and to manage user-defined attributes related to the study.
 
-    Note that the direct use of this constructor is not recommended.
-    To create a study, use :func:`~gmab.create_study`.
-
+    Note: It is recommended to use the `create_study` function to instantiate a Study
+    instead of using the constructor directly.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, algorithm=Gmab) -> None:
+        """
+        Initialize a Study instance.
+
+        Args:
+            algorithm: The optimization algorithm to use. Defaults to Gmab.
+        """
+        self.func: Callable | None = None
+        self.params: dict[str, BaseParam] | None = None
+
+        self._algorithm = algorithm
         self._best_trial: dict | None = None
 
     @property
     def best_trial(self) -> dict:
-        """Return the parameters of the best trial in the study.
+        """
+        Retrieve the parameters of the best trial in the study.
 
         Returns:
-            A dictionary containing parameters of the best trial.
+            dict: A dictionary containing the parameters of the best trial.
 
+        Raises:
+            RuntimeError: If the best trial is not available yet.
         """
         if not self._best_trial:
             raise RuntimeError("best_trial is not available yet. Run study.optimize().")
         return self._best_trial
 
-    def optimize(
-        self,
-        func: Callable,
-        bounds: list[tuple],
-        n_simulations: int,
-    ) -> None:
-        """Optimize an objective function.
-
-        Optimization is done by choosing a suitable set of hyperparmeter values within
-        given ``bounds``
-
-        The optimization trial will be stopped after ``n_simulations`` of the
-        :func:`func`.
+    def _map_to_solution(self, action_vector: list) -> dict:
+        """
+        Map an action vector to a dictionary that contains the solution value for each parameter.
 
         Args:
-            func:
-                A callable that implements the objective function.
-            bounds:
-                A list of of tuples that define the bounds for each decision variable.
-            n_simulations:
-                The number of simulations per trial. A trial will continue until the
-                number of elapsed simulations reaches `n_simulations`.
+            action_vector (list): A list of actions to map.
+
+        Returns:
+            dict: The distinct solution for the action vector, formatted as dictionary.
         """
-        gmab = Gmab(func, bounds)
-        self._best_trial = gmab.optimize(n_simulations)
+        result = {}
+        idx = 0
+        for key, param in self.params.items():
+            result[key] = param.map_to_value(action_vector[idx : idx + param.size])
+            idx += param.size
+        return result
+
+    def _run_trial(self, action_vector: list) -> float:
+        """
+        Execute a trial with the given action vector.
+
+        Args:
+            action_vector (list): A list of actions to execute.
+
+        Returns:
+            float: The result of the objective function.
+        """
+        solution = self._map_to_solution(action_vector)
+        return self.func(**solution)
+
+    def optimize(self, func: Callable, params: dict, trials: int) -> None:
+        """
+        Optimize the objective function.
+
+        The optimization process involves selecting suitable hyperparameter values within
+        specified bounds and running the objective function for a given number of trials.
+
+        Args:
+            func (Callable): The objective function to optimize.
+            params (dict): A dictionary of parameters with their bounds.
+            trials (int): The number of trials to run.
+        """
+        self.func = func  # ToDo: Add input validation
+        self.params = params  # ToDo: Add input validation
+
+        bounds = next(param.bounds for param in self.params.values())
+        gmab = self._algorithm(self._run_trial, bounds)
+        best_action_vector = gmab.optimize(trials)
+
+        self._best_trial = self._map_to_solution(best_action_vector)
         _logger.info("completed")
 
 
 def create_study() -> Study:
-    """Create a new :class:`~gmab.study.Study`."""
+    """
+    Create a new Study instance.
+
+    Returns:
+        Study: A new instance of the Study class.
+    """
     return Study()
