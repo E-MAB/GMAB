@@ -9,5 +9,5 @@ name = "gmab"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.23.4"
+pyo3 = "0.24.0"
 gmab_rust = { package = "gmab", path = "../gmab" }
