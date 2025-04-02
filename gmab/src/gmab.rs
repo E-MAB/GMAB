@@ -22,7 +22,7 @@ impl<F: OptimizationFn> Gmab<F> {
         }
     }
 
-    pub fn new(opti_function: F, bounds: Vec<(i32, i32)>) -> Gmab<F> {
+    pub fn new(opti_function: F, bounds: Vec<(i32, i32)>, state: Option<u64>) -> Gmab<F> {
         let dimension = bounds.len();
         let lower_bound = bounds.iter().map(|&(low, _)| low).collect::<Vec<i32>>();
         let upper_bound = bounds.iter().map(|&(_, high)| high).collect::<Vec<i32>>();
@@ -42,6 +42,7 @@ impl<F: OptimizationFn> Gmab<F> {
             dimension,
             lower_bound,
             upper_bound,
+            state,
         )
     }
 
@@ -54,6 +55,7 @@ impl<F: OptimizationFn> Gmab<F> {
         dimension: usize,
         lower_bound: Vec<i32>,
         upper_bound: Vec<i32>,
+        state: Option<u64>,
     ) -> Gmab<F> {
         // Raise an Exception if population_size > solution space
         let mut solution_size: usize = 1;
@@ -72,7 +74,7 @@ impl<F: OptimizationFn> Gmab<F> {
             );
         }
 
-        let genetic_algorithm = GeneticAlgorithm::new(
+        let mut genetic_algorithm = GeneticAlgorithm::new(
             opti_function,
             population_size,
             mutation_rate,
@@ -81,6 +83,7 @@ impl<F: OptimizationFn> Gmab<F> {
             dimension,
             lower_bound,
             upper_bound,
+            state,
         );
 
         let mut arm_memory: Vec<Arm> = Vec::new();
@@ -322,6 +325,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
         assert_eq!(gmab.genetic_algorithm.population_size, 10);
         assert_eq!(gmab.arm_memory.len(), 10);
@@ -347,6 +351,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![1, 1], // less possible solutions that population_size
+            None,
         );
     }
 
@@ -361,6 +366,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
         let arm = Arm::new(&vec![1, 2]);
         gmab.arm_memory.push(arm.clone());
@@ -380,6 +386,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
         assert_eq!(gmab.max_number_pulls(), 1);
     }
@@ -395,6 +402,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
         assert_eq!(gmab.find_best_ucb(100), 0);
     }
@@ -410,6 +418,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
 
         let arm = Arm::new(&vec![1, 2]);
@@ -439,6 +448,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
 
         let arm = Arm::new(&vec![1, 2]);

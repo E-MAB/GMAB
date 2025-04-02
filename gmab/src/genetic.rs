@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, RngCore, SeedableRng};
 use rand_distr::{Distribution, Normal};
 
 use crate::arm::{Arm, OptimizationFn};
 
 pub(crate) struct GeneticAlgorithm<F: OptimizationFn> {
+    rng: StdRng,
     mutation_rate: f64,
     crossover_rate: f64,
     mutation_span: f64,
@@ -26,8 +28,14 @@ impl<F: OptimizationFn> GeneticAlgorithm<F> {
         dimension: usize,
         lower_bound: Vec<i32>,
         upper_bound: Vec<i32>,
+        state: Option<u64>,
     ) -> Self {
+        // Try to set a state for rng, or fall back to system entropy
+        let state = state.unwrap_or_else(|| rand::rng().next_u64());
+        let rng = SeedableRng::seed_from_u64(state);
+
         Self {
+            rng,
             mutation_rate,
             crossover_rate,
             mutation_span,
@@ -39,9 +47,9 @@ impl<F: OptimizationFn> GeneticAlgorithm<F> {
         }
     }
 
-    pub(crate) fn generate_new_population(&self) -> Vec<Arm> {
+    pub(crate) fn generate_new_population(&mut self) -> Vec<Arm> {
         let mut individuals: Vec<Arm> = Vec::new();
-        let mut rng = rand::rng();
+        let mut rng: StdRng = SeedableRng::seed_from_u64(self.rng.next_u64());
 
         while individuals.len() < self.population_size {
             let candidate_solution: Vec<i32> = (0..self.dimension)
@@ -57,13 +65,13 @@ impl<F: OptimizationFn> GeneticAlgorithm<F> {
         individuals
     }
 
-    pub(crate) fn crossover(&self, population: &[Arm]) -> Vec<Arm> {
+    pub(crate) fn crossover(&mut self, population: &[Arm]) -> Vec<Arm> {
         let mut crossover_pop: Vec<Arm> = Vec::new();
         let population_size = self.population_size;
-        let mut rng = rand::rng();
+        let mut rng: StdRng = SeedableRng::seed_from_u64(self.rng.next_u64());
 
         for i in (0..population_size).step_by(2) {
-            if rand::random::<f64>() < self.crossover_rate {
+            if rng.random::<f64>() < self.crossover_rate {
                 // Crossover
                 let max_dim_index = self.dimension - 1;
                 let swap_rv = rng.random_range(1..=max_dim_index);
@@ -99,10 +107,10 @@ impl<F: OptimizationFn> GeneticAlgorithm<F> {
         crossover_pop
     }
 
-    pub(crate) fn mutate(&self, population: &[Arm]) -> Vec<Arm> {
+    pub(crate) fn mutate(&mut self, population: &[Arm]) -> Vec<Arm> {
         let mut mutated_population = Vec::new();
         let mut seen = HashSet::new();
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(self.rng.next_u64());
 
         for individual in population.iter() {
             // Clone the action vector
@@ -154,13 +162,14 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
         assert_eq!(ga.population_size, 10);
     }
 
     #[test]
     fn test_mutate() {
-        let ga = GeneticAlgorithm::new(
+        let mut ga = GeneticAlgorithm::new(
             mock_opti_function,
             2,   // Two individuals in population
             1.0, // 100% mutation rate for demonstration
@@ -169,6 +178,7 @@ mod tests {
             2,
             vec![0, 0],
             vec![10, 10],
+            None,
         );
 
         let initial_population = vec![Arm::new(&vec![1, 1]), Arm::new(&vec![2, 2])];
@@ -191,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_crossover() {
-        let ga = GeneticAlgorithm::new(
+        let mut ga = GeneticAlgorithm::new(
             mock_opti_function,
             2, // Two individuals for simplicity
             0.1,
@@ -200,6 +210,7 @@ mod tests {
             10, // higher dimension for demonstration so low probability of crossover leading to identical individuals
             vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             vec![10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
+            None,
         );
 
         let initial_population = vec![
@@ -218,5 +229,69 @@ mod tests {
             crossover_population[1].get_action_vector(),
             initial_population[1].get_action_vector()
         );
+    }
+
+    #[test]
+    fn test_reproduction_with_seeding() {
+        // This test verifies the seeding in this module by testing if the same results are
+        // produced with the same seed, or different results are produced with another seed.
+
+        let seed = 42;
+        let mut ga = GeneticAlgorithm::new(
+            mock_opti_function,
+            10,
+            0.1,
+            0.9,
+            0.5,
+            2,
+            vec![0, 0],
+            vec![10, 10],
+            Some(seed),
+        );
+
+        let mut same_ga = GeneticAlgorithm::new(
+            mock_opti_function,
+            10,
+            0.1,
+            0.9,
+            0.5,
+            2,
+            vec![0, 0],
+            vec![10, 10],
+            Some(seed),
+        );
+
+        let mut diff_ga = GeneticAlgorithm::new(
+            mock_opti_function,
+            10,
+            0.1,
+            0.9,
+            0.5,
+            2,
+            vec![0, 0],
+            vec![10, 10],
+            Some(seed + 1),
+        );
+
+        // Verify generation of new populations with seeding
+        let mut ga_population = ga.generate_new_population();
+        let mut same_ga_population = same_ga.generate_new_population();
+        let mut diff_ga_population = diff_ga.generate_new_population();
+        assert_eq!(ga_population, same_ga_population);
+        assert_ne!(ga_population, diff_ga_population);
+
+        // Verify crossover with seeding
+        ga_population = ga.crossover(&ga_population);
+        same_ga_population = same_ga.crossover(&same_ga_population);
+        diff_ga_population = diff_ga.crossover(&diff_ga_population);
+        assert_eq!(ga_population, same_ga_population);
+        assert_ne!(ga_population, diff_ga_population);
+
+        // Verify mutation with seeding
+        ga_population = ga.mutate(&ga_population);
+        same_ga_population = same_ga.mutate(&same_ga_population);
+        diff_ga_population = diff_ga.mutate(&diff_ga_population);
+        assert_eq!(ga_population, same_ga_population);
+        assert_ne!(ga_population, diff_ga_population);
     }
 }

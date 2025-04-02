@@ -6,7 +6,7 @@ use gmab::gmab::Gmab;
 
 fn random_poisson(lambda: f64) -> i32 {
     let poi = Poisson::new(lambda).unwrap();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     poi.sample(&mut rng) as i32
 }
 
@@ -1061,7 +1061,7 @@ fn main() {
     for i in 0..num_runs {
         let start_time = Instant::now(); // Record the start time
         let bounds = vec![(1, 100), (1, 100)]; // Set the bounds for the problem
-        let mut genetic_multi_armed_bandit = Gmab::new(inventory, bounds);
+        let mut genetic_multi_armed_bandit = Gmab::new(inventory, bounds, None);
         let result = genetic_multi_armed_bandit.optimize(10000);
 
         let elapsed_time = start_time.elapsed().as_secs_f64(); // Record the elapsed time

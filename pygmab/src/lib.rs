@@ -37,10 +37,11 @@ struct Gmab {
 #[pymethods]
 impl Gmab {
     #[new]
-    fn new(py_func: PyObject, bounds: Vec<(i32, i32)>) -> PyResult<Self> {
+    #[pyo3(signature = (py_func, bounds, seed=None))]
+    fn new(py_func: PyObject, bounds: Vec<(i32, i32)>, seed: Option<u64>) -> PyResult<Self> {
         let python_opti_fn = PythonOptimizationFn::new(py_func);
 
-        match panic::catch_unwind(|| RustGmab::new(python_opti_fn, bounds)) {
+        match panic::catch_unwind(|| RustGmab::new(python_opti_fn, bounds, seed)) {
             Ok(gmab) => Ok(Gmab { gmab }),
             Err(err) => {
                 let err_message = if let Some(msg) = err.downcast_ref::<&str>() {
