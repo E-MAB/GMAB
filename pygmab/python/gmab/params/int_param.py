@@ -8,7 +8,7 @@ class IntParam(BaseParam):
     A class representing an integer parameter.
     """
 
-    def __init__(self, low: int, high: int, size: int = 1, step: int = 1):
+    def __init__(self, low: int, high: int, size: int = 1):
         """
         Creates an IntParam that will suggest integer values during the optimization.
 
@@ -20,37 +20,28 @@ class IntParam(BaseParam):
             low (int): The lower bound of the suggested values.
             high (int): The upper bound of the suggested values.
             size (int): The size if the parameter shall be a list of integers. Default is 1.
-            step (int): The step size between the suggested values. Default is 1.
 
         Returns:
             IntParam: An instance of the parameter with the specified properties.
 
         Raises:
             ValueError: If low is not an integer, if high is not an integer that is greater than
-            low, or if size or step are not positive integers.
+            low, or if size ist not a positive integers.
 
         Example:
-        >>> param = IntParam(low=1, high=10, size=3, step=2)
+        >>> param = IntParam(low=1, high=10, size=3)
         >>> print(param)
-        IntParam(low=1, high=10, size=3, step=2)
-
-        Notes:
-            The step size determines the granularity of the sampled values. For example, a step
-            of 2 means that only every second integer within the range will be considered.
-
+        IntParam(low=1, high=10, size=3)
         """
         if high <= low:
             raise ValueError("high must be an integer that is greater than low.")
-        if step < 1:
-            raise ValueError("step must be a positive integer.")
 
         super().__init__(size)
         self.low: int = int(low)
         self.high: int = int(high)
-        self.step: int = int(step)
 
     def __repr__(self):
-        return f"IntParam(low={self.low}, high={self.high}, size={self.size}, step={self.step})"
+        return f"IntParam(low={self.low}, high={self.high}, size={self.size})"
 
     @cached_property
     def bounds(self) -> list[tuple]:
@@ -64,13 +55,7 @@ class IntParam(BaseParam):
             list[tuple]: A list of tuples representing the bounds.
 
         """
-        if self.step == 1:
-            upper_bound = self.high
-        else:
-            upper_bound = (self.high - self.low) // self.step
-            upper_bound += 1 if (self.high - self.low) % self.step != 0 else 0
-            upper_bound += self.low
-        return [(self.low, upper_bound)] * self.size
+        return [(self.low, self.high)] * self.size
 
     def map_to_value(self, actions: list[int]) -> int | list[int]:
         """
@@ -82,9 +67,6 @@ class IntParam(BaseParam):
         Returns:
             int | list[int]: The resulting integer value(s).
         """
-        if self.step > 1:
-            actions = [min(self.low + (x - self.low) * self.step, self.high) for x in actions]
-
         if len(actions) == 1:
             return actions[0]
         return actions

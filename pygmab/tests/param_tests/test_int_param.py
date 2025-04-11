@@ -6,11 +6,8 @@ from gmab.params import IntParam
 test_int_param_data = [
     pytest.param(0, 1, {}, [(0, 1)], [0, 1], id="base"),
     pytest.param(0, 1, {"size": 2}, [(0, 1), (0, 1)], [0, 1], id="vector"),
-    pytest.param(3, 6, {"step": 3}, [(3, 4)], [3, 6], id="step"),
-    pytest.param(3, 7, {"step": 3}, [(3, 5)], [3, 6, 7], id="step_edge_case"),
     pytest.param(0, 0, {"exp": pytest.raises(ValueError)}, None, None, id="high_value"),
     pytest.param(0, 1, {"size": 0, "exp": pytest.raises(ValueError)}, None, None, id="size_value"),
-    pytest.param(0, 4, {"step": 0, "exp": pytest.raises(ValueError)}, None, None, id="step_value"),
 ]
 
 

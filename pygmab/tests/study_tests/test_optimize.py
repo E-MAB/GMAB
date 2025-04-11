@@ -16,7 +16,6 @@ def rb_func(number: list):
 
 test_data = [
     pytest.param(rb_func, {"x": IntParam(-5, 10, 2)}, 1, [(-5, 10), (-5, 10)], id="base"),
-    pytest.param(rb_func, {"x": IntParam(-5, 10, 2, 2)}, 1, [(-5, 3), (-5, 3)], id="step"),
     # ToDo: Implement the input validaton for study.optimize
 ]
 
