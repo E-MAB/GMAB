@@ -3,16 +3,9 @@ from contextlib import nullcontext
 import pytest
 from gmab import Gmab
 
+from tests._functions import rosenbrock
+
 SEED = 42
-
-
-def rb_function(number: list):
-    return sum(
-        [
-            100 * (number[i + 1] - number[i] ** 2) ** 2 + (1 - number[i]) ** 2
-            for i in range(len(number) - 1)
-        ]
-    )
 
 
 @pytest.mark.parametrize(
@@ -33,5 +26,5 @@ def rb_function(number: list):
 def test_gmab(bounds, budget, kwargs):
     expectation = kwargs.pop("exp", nullcontext())
     with expectation:
-        gmab = Gmab(rb_function, bounds, **kwargs)
+        gmab = Gmab(rosenbrock.function, bounds, **kwargs)
         _ = gmab.optimize(budget)
