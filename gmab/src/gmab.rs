@@ -2,6 +2,8 @@ use crate::arm::{Arm, OptimizationFn};
 use crate::genetic::GeneticAlgorithm;
 use crate::sorted_multi_map::{FloatKey, SortedMultiMap};
 use rand::prelude::SliceRandom;
+use rand::rngs::StdRng;
+use rand::{RngCore, SeedableRng};
 use std::collections::HashMap;
 
 pub struct Gmab<F: OptimizationFn> {
@@ -9,6 +11,7 @@ pub struct Gmab<F: OptimizationFn> {
     arm_memory: Vec<Arm>,
     lookup_table: HashMap<Vec<i32>, i32>,
     genetic_algorithm: GeneticAlgorithm<F>,
+    rng: StdRng,
 }
 
 impl<F: OptimizationFn> Gmab<F> {
@@ -74,7 +77,7 @@ impl<F: OptimizationFn> Gmab<F> {
             );
         }
 
-        let mut genetic_algorithm = GeneticAlgorithm::new(
+        let genetic_algorithm = GeneticAlgorithm::new(
             opti_function,
             population_size,
             mutation_rate,
@@ -83,14 +86,18 @@ impl<F: OptimizationFn> Gmab<F> {
             dimension,
             lower_bound,
             upper_bound,
-            seed,
         );
+
+        // Try to set a seed for rng, or fall back to system entropy
+        let seed = seed.unwrap_or_else(|| rand::rng().next_u64());
+        let mut rng: StdRng = SeedableRng::seed_from_u64(seed);
 
         let mut arm_memory: Vec<Arm> = Vec::new();
         let mut lookup_table: HashMap<Vec<i32>, i32> = HashMap::new();
         let mut sample_average_tree: SortedMultiMap<FloatKey, i32> = SortedMultiMap::new();
 
-        let mut initial_population = genetic_algorithm.generate_new_population();
+        let next_seed = rng.next_u64();
+        let mut initial_population = genetic_algorithm.generate_new_population(next_seed);
 
         for (index, individual) in initial_population.iter_mut().enumerate() {
             individual.pull(&genetic_algorithm.opti_function);
@@ -104,6 +111,7 @@ impl<F: OptimizationFn> Gmab<F> {
             arm_memory,
             lookup_table,
             genetic_algorithm,
+            rng,
         }
     }
 
@@ -212,12 +220,14 @@ impl<F: OptimizationFn> Gmab<F> {
                 });
 
             // shuffle population
-            population.shuffle(&mut rand::rng());
+            population.shuffle(&mut self.rng);
 
-            let crossover_pop = self.genetic_algorithm.crossover(&population);
+            let next_seed = self.rng.next_u64();
+            let crossover_pop = self.genetic_algorithm.crossover(next_seed, &population);
 
             // mutate automatically removes duplicates
-            let mutated_pop = self.genetic_algorithm.mutate(&crossover_pop);
+            let next_seed = self.rng.next_u64();
+            let mutated_pop = self.genetic_algorithm.mutate(next_seed, &crossover_pop);
 
             for individual in mutated_pop {
                 let arm_index = self.get_arm_index(&individual);
@@ -464,5 +474,28 @@ mod tests {
             gmab.lookup_table.get(&arm.get_action_vector().to_vec()),
             Some(&0)
         );
+    }
+
+    #[test]
+    fn test_reproduction_with_seeding() {
+        // Mock optimization function for testing
+        fn mock_opti_function(_vec: &[i32]) -> f64 {
+            0.0
+        }
+
+        // Helper function that generates a gmab result based on a specific seed.
+        fn generate_result(seed: Option<u64>) -> Vec<i32> {
+            let bounds = vec![(1, 100), (1, 100)];
+            let mut genetic_multi_armed_bandit = Gmab::new(mock_opti_function, bounds, seed);
+            let result = genetic_multi_armed_bandit.optimize(100);
+            return result;
+        }
+
+        // The same seed should lead to the same result
+        let seed = 42;
+        assert_eq!(generate_result(Some(seed)), generate_result(Some(seed)));
+
+        // A different seed should not lead to the same population
+        assert_ne!(generate_result(Some(seed)), generate_result(Some(seed + 1)));
     }
 }
