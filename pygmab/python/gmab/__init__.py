@@ -1,6 +1,6 @@
 from gmab import logging
 from gmab.gmab import Gmab
-from gmab.params import FloatParam, IntParam
+from gmab.params import CategoricalParam, FloatParam, IntParam
 from gmab.search import GmabSearchCV
 from gmab.study import Study
 
@@ -9,6 +9,7 @@ __all__ = [
     "GmabSearchCV",
     "logging",
     "Study",
-    "IntParam",
+    "CategoricalParam",
     "FloatParam",
+    "IntParam",
 ]
