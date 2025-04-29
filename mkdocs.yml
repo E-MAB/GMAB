@@ -2,11 +2,32 @@ site_name: EvoBandit Docs
 
 repo_url: https://github.com/EvoBandits/EvoBandits
 repo_name: EvoBandits/EvoBandits
+edit_uri: edit/main/docs/source/
 
 docs_dir: docs/source
 
 theme:
   name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: deep orange  
+      toggle:
+        icon: material/lightbulb
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: deep orange  
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to light mode
+
+  features:
+    - content.action.view
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
   icon:
     repo: fontawesome/brands/github
 
