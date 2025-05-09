@@ -11,14 +11,14 @@ impl<F: Fn(&[i32]) -> f64> OptimizationFn for F {
 }
 
 #[derive(Debug)]
-pub(crate) struct Arm {
+pub struct Arm {
     action_vector: Vec<i32>,
     reward: f64,
     num_pulls: i32,
 }
 
 impl Arm {
-    pub(crate) fn new(action_vector: &[i32]) -> Self {
+    pub fn new(action_vector: &[i32]) -> Self {
         Self {
             reward: 0.0,
             num_pulls: 0,
@@ -35,7 +35,7 @@ impl Arm {
         g
     }
 
-    pub(crate) fn get_num_pulls(&self) -> i32 {
+    pub fn get_num_pulls(&self) -> i32 {
         self.num_pulls
     }
 
@@ -43,11 +43,11 @@ impl Arm {
         opt_fn.evaluate(&self.action_vector)
     }
 
-    pub(crate) fn get_action_vector(&self) -> &[i32] {
+    pub fn get_action_vector(&self) -> &[i32] {
         &self.action_vector
     }
 
-    pub(crate) fn get_mean_reward(&self) -> f64 {
+    pub fn get_mean_reward(&self) -> f64 {
         if self.num_pulls == 0 {
             return 0.0;
         }

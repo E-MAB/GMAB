@@ -1,3 +1,17 @@
+// Copyright 2025 EvoBandits
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use std::time::Instant;
 
 use rand_distr::{Distribution, Poisson};
@@ -1062,12 +1076,13 @@ fn main() {
         let start_time = Instant::now(); // Record the start time
         let bounds = vec![(1, 100), (1, 100)]; // Set the bounds for the problem
         let mut evobandits = EvoBandits::new(Default::default()); // Initialize a default EvoBandits Instance
-        let result = evobandits.optimize(inventory, bounds, 10000, None); // Optimize inventory, unseeded, with constraints (bounds, budget)
+        let best_arms = evobandits.optimize(inventory, bounds, 10000, 1, None); // Optimize inventory, unseeded, with constraints (bounds, budget)
 
         let elapsed_time = start_time.elapsed().as_secs_f64(); // Record the elapsed time
         total_time += elapsed_time; // Add the elapsed time to the total
 
-        let true_objective_value = get_true_objective_value(&result);
+        let action_vector = best_arms[0].get_action_vector().to_vec();
+        let true_objective_value = get_true_objective_value(&action_vector);
         total_value += true_objective_value;
 
         // Print the counter, the true objective value, and the time for every 10 runs

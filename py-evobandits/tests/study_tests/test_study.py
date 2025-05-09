@@ -1,3 +1,17 @@
+# Copyright 2025 EvoBandits
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from contextlib import nullcontext
 from unittest.mock import MagicMock
 
@@ -54,8 +68,8 @@ def test_study_init(seed, kwargs, exp_algorithm, caplog):
         [
             cl.function,
             cl.PARAMS,
-            1,
-            {"mock_opt_return": cl.RESULTS_EXAMPLE, "mock_best_trial": cl.BEST_TRIAL_EXAMPLE},
+            2,
+            {"n_best": 2, "optimize_ret": cl.RESULTS_EXAMPLE, "exp_result": cl.BEST_TRIAL_EXAMPLE},
         ],
         [rb.function, rb.PARAMS_2D, 1, {"maximize": True}],
         [rb.function, rb.PARAMS_2D, 1, {"maximize": "False", "exp": pytest.raises(TypeError)}],
@@ -71,8 +85,8 @@ def test_optimize(objective, params, trials, kwargs):
     # Mock dependencies
     # Per default, and expected results from the rosenbrock testcase are used to mock EvoBandits.
     mock_algorithm = MagicMock()
-    mock_algorithm.optimize.return_value = kwargs.pop("mock_opt_return", rb.RESULTS_2D)
-    mock_best_trial = kwargs.pop("mock_best_trial", rb.BEST_TRIAL_2D)
+    mock_algorithm.optimize.return_value = kwargs.pop("optimize_ret", rb.RESULTS_2D)
+    exp_result = kwargs.pop("exp_result", rb.BEST_TRIAL_2D)
     study = Study(seed=42, algorithm=mock_algorithm)  # seeding to avoid warning log
 
     # Extract expected exceptions
@@ -80,6 +94,6 @@ def test_optimize(objective, params, trials, kwargs):
 
     # Optimize a study and verify results
     with expectation:
-        best_trial = study.optimize(objective, params, trials, **kwargs)
-        assert best_trial == mock_best_trial
+        result = study.optimize(objective, params, trials, **kwargs)
+        assert result == exp_result
         assert mock_algorithm.optimize.call_count == 1  # Always run algorithm once for now

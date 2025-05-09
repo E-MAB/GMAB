@@ -1,3 +1,17 @@
+// Copyright 2025 EvoBandits
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use crate::arm::{Arm, OptimizationFn};
 use crate::genetic::GeneticAlgorithm;
 use crate::sorted_multi_map::{FloatKey, SortedMultiMap};
@@ -144,13 +158,40 @@ impl EvoBandits {
         }
     }
 
+    fn extract_best_arms(&mut self, simulation_used: usize, n_best: usize) -> Vec<Arm> {
+        let mut best_arms: Vec<Arm> = Vec::new();
+        for _ in 0..n_best {
+            // Return early if there are no more arms to extract
+            if self.sample_average_tree.iter().peekable().peek().is_none() {
+                println!(
+                    "Population ({}) is smaller than n_best ({}). Returning all arms instead.",
+                    best_arms.len(),
+                    n_best
+                );
+                break;
+            }
+
+            // Find the next best arm, and remove it from SAT to continue extraction
+            let best_arm_index = self.find_best_ucb(simulation_used);
+            let best_arm = self.arm_memory[best_arm_index as usize].clone();
+
+            self.sample_average_tree
+                .delete(&FloatKey::new(best_arm.get_mean_reward()), &best_arm_index);
+
+            best_arms.push(best_arm);
+        }
+
+        best_arms
+    }
+
     pub fn optimize<F: OptimizationFn>(
         &mut self,
         opti_function: F,
         bounds: Vec<(i32, i32)>,
         simulation_budget: usize,
+        n_best: usize,
         seed: Option<u64>,
-    ) -> Vec<i32> {
+    ) -> Vec<Arm> {
         // Unwrap seed or fall back to system entropy
         let seed = seed.unwrap_or_else(|| rand::rng().next_u64());
         let mut rng: StdRng = SeedableRng::seed_from_u64(seed);
@@ -164,6 +205,7 @@ impl EvoBandits {
             "simulation_budget must be at least population_size ({})",
             self.genetic_algorithm.population_size
         );
+        assert!(n_best >= 1, "n_best must be at least 1. ({})", n_best);
 
         // Initialize the Population for the Optimization
         let next_seed = rng.next_u64();
@@ -197,9 +239,7 @@ impl EvoBandits {
 
             for individual in mutated_pop {
                 if simulation_used >= simulation_budget {
-                    return self.arm_memory[self.find_best_ucb(simulation_used) as usize]
-                        .get_action_vector()
-                        .to_vec();
+                    return self.extract_best_arms(simulation_used, n_best);
                 }
 
                 let arm_index = self.get_arm_index(&individual);
@@ -215,9 +255,7 @@ impl EvoBandits {
 
             for individual in population {
                 if simulation_used >= simulation_budget {
-                    return self.arm_memory[self.find_best_ucb(simulation_used) as usize]
-                        .get_action_vector()
-                        .to_vec();
+                    return self.extract_best_arms(simulation_used, n_best);
                 }
 
                 let arm_index = self.get_arm_index(&individual);
@@ -438,12 +476,13 @@ mod tests {
         fn mock_opti_function(vec: &[i32]) -> f64 {
             vec.iter().map(|&x| x as f64).sum()
         }
-        
+
         // Helper function that generates a evobandits result based on a specific seed.
         fn generate_result(seed: Option<u64>) -> Vec<i32> {
             let bounds = vec![(1, 100), (1, 100)];
             let mut evobandits = EvoBandits::new(Default::default());
-            return evobandits.optimize(mock_opti_function, bounds, 100, seed);
+            let result = evobandits.optimize(mock_opti_function, bounds, 100, 1, seed);
+            return result[0].get_action_vector().to_vec();
         }
 
         // The same seed should lead to the same result
@@ -468,7 +507,7 @@ mod tests {
 
         // Panics only, if validation from GmabOptions is integrated
         let mut evobandits = EvoBandits::new(ga);
-        evobandits.optimize(mock_opti_function, bounds, 1, None);
+        evobandits.optimize(mock_opti_function, bounds, 1, 1, None);
     }
 
     #[test]
@@ -484,7 +523,7 @@ mod tests {
         let simulation_budget = 1000;
         let bounds = vec![(1, 100), (1, 100)];
         let mut evobandits = EvoBandits::new(Default::default());
-        evobandits.optimize(mock_opti_function, bounds, simulation_budget, None);
+        evobandits.optimize(mock_opti_function, bounds, simulation_budget, 1, None);
 
         assert_eq!(simulation_budget, *simulation_used.borrow_mut());
     }
@@ -502,6 +541,97 @@ mod tests {
         // Panics only, if simulation_budget is validated
         let bounds = vec![(1, 100), (1, 100)];
         let mut evobandits = EvoBandits::new(ga);
-        evobandits.optimize(mock_opti_function, bounds, simulation_budget, None);
+        evobandits.optimize(mock_opti_function, bounds, simulation_budget, 1, None);
+    }
+
+    #[test]
+    #[should_panic = "n_best"]
+    fn test_panic_on_invalid_return_n_best() {
+        let n_best = 0; // top 0 results makes no sense, but fits in usize
+        let bounds = vec![(1, 100), (1, 100)];
+        let mut evobandits = EvoBandits::new(Default::default());
+        evobandits.optimize(mock_opti_function, bounds, 20, n_best, None);
+    }
+
+    #[test]
+    fn test_evobandits_extract_n_best_arms() {
+        // Mock an evobandits instance with 20 unique arms (distinct action vector and reward, one pull each)
+        fn mock_opti_function(vec: &[i32]) -> f64 {
+            vec.iter()
+                .enumerate()
+                .map(|(i, &x)| (x as f64) * 10f64.powi(i as i32))
+                .sum()
+        }
+
+        let population_size = 20;
+        let ga = GeneticAlgorithm {
+            population_size: population_size,
+            dimension: 3,
+            lower_bound: vec![0, 0, 0],
+            upper_bound: vec![9, 9, 9],
+            ..Default::default()
+        };
+        let mut evobandits = EvoBandits::new(ga);
+        evobandits.initialize_population(0, &mock_opti_function);
+
+        // Copy and sort all arms
+        let mut sorted_arms = evobandits.arm_memory.clone();
+        sorted_arms.sort_by(|a, b| {
+            a.get_mean_reward()
+                .partial_cmp(&b.get_mean_reward())
+                .unwrap()
+        });
+
+        // Get n_best arms
+        let n_best = 3;
+        let best_arms = evobandits.extract_best_arms(population_size, n_best);
+
+        // Ensure the number of best arms returned matches n_best
+        assert_eq!(best_arms.len(), n_best);
+
+        // Ensure the best arms match the ones with the lowest reward.
+        for i in 0..n_best {
+            assert_eq!(
+                best_arms[i].get_action_vector(),
+                sorted_arms[i].get_action_vector()
+            );
+        }
+    }
+
+    #[test]
+    fn test_evobandits_extract_all_arms() {
+        // Mock an evobandits instance with 20 unique arms (distinct action vector and reward, one pull each)
+        fn mock_opti_function(vec: &[i32]) -> f64 {
+            vec.iter()
+                .enumerate()
+                .map(|(i, &x)| (x as f64) * 10f64.powi(i as i32))
+                .sum()
+        }
+
+        let population_size = 20;
+        let ga = GeneticAlgorithm {
+            population_size: population_size,
+            dimension: 3,
+            lower_bound: vec![0, 0, 0],
+            upper_bound: vec![9, 9, 9],
+            ..Default::default()
+        };
+        let mut evobandits = EvoBandits::new(ga);
+        evobandits.initialize_population(0, &mock_opti_function);
+
+        // Copy and sort all arms
+        let mut sorted_arms = evobandits.arm_memory.clone();
+        sorted_arms.sort_by(|a, b| {
+            a.get_mean_reward()
+                .partial_cmp(&b.get_mean_reward())
+                .unwrap()
+        });
+
+        // Try to get more best arms than available
+        let n_best = population_size + 1;
+        let best_arms = evobandits.extract_best_arms(population_size, n_best);
+
+        // Ensure the number of best arms returned matches the population size
+        assert_eq!(best_arms.len(), sorted_arms.len());
     }
 }

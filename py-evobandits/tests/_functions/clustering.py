@@ -1,3 +1,17 @@
+# Copyright 2025 EvoBandits
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 """
 Objective function and useful parameters for a clustering problem,
 which serves as an example to demonstrate the use of various parameters types.
@@ -9,8 +23,9 @@ Last accessed: 2025-04-18
 Version: 1.6.1
 """
 
+# import pandas as pd
 import numpy as np
-from evobandits import CategoricalParam, FloatParam, IntParam
+from evobandits import Arm, CategoricalParam, FloatParam, IntParam
 from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.datasets import make_blobs
 
@@ -22,13 +37,32 @@ PARAMS = {
     "tol": FloatParam(1e-4, 1e-2),
 }
 BOUNDS = [(0, 1), (0, 1), (1, 10), (0, 100)]
-RESULTS_EXAMPLE = [0, 0, 3, 0]
-BEST_TRIAL_EXAMPLE = {
-    "algorithm": KMeans,
-    "init": "k-means++",
-    "n_clusters": 3,
-    "tol": 0.0001,
-}
+RESULTS_EXAMPLE = [Arm([0, 0, 4, 0]), Arm([0, 0, 3, 0])]
+BEST_TRIAL_EXAMPLE = [
+    {
+        "n_best": 1,
+        "mean_reward": 0.0,
+        "num_pulls": 0,
+        "params": {
+            "algorithm": KMeans,
+            "init": "k-means++",
+            "n_clusters": 4,
+            "tol": 0.0001,
+        },
+    },
+    {
+        "n_best": 2,
+        "mean_reward": 0.0,
+        "num_pulls": 0,
+        "params": {
+            "algorithm": KMeans,
+            "init": "k-means++",
+            "n_clusters": 3,
+            "tol": 0.0001,
+        },
+    },
+]
+# TRIALS_DF = pd.DataFrame(BEST_TRIAL_EXAMPLE)
 
 
 # Generate sample data
