@@ -15,6 +15,8 @@
 from collections.abc import Callable, Mapping
 from typing import TypeAlias
 
+import pandas as pd
+
 from evobandits import logging
 from evobandits.evobandits import (
     EvoBandits,
@@ -58,6 +60,7 @@ class Study:
 
         # 1 for minimization, -1 for maximization to avoid repeated branching during optimization.
         self._direction: int = 1
+        self.results: list[dict] = []
 
     def _collect_bounds(self) -> list[tuple[int, int]]:
         """
@@ -111,7 +114,7 @@ class Study:
         n_best: int = 1,
     ) -> None:
         """
-        Optimize the objective function.
+        Optimize the objective function, saving results to `study.results`.
 
         The optimization process involves selecting suitable hyperparameter values within
         specified bounds and running the objective function for a given number of trials.
@@ -123,8 +126,6 @@ class Study:
             maximize (bool): Indicates if objective is maximized. Default is False.
             n_best (int): The number of results to return per run. Default is 1.
 
-        Returns:
-            dict: The best parameter values found during optimization.
         """
         if not isinstance(maximize, bool):
             raise TypeError(f"maximize must be a bool, got {type(maximize)}.")
@@ -136,12 +137,30 @@ class Study:
         bounds = self._collect_bounds()
         best_arms = self.algorithm.optimize(self._evaluate, bounds, trials, n_best, self.seed)
 
-        best_results = []
         for i, arm in enumerate(best_arms, start=1):
             result = arm.to_dict
             action_vector = result.pop("action_vector")
             result["params"] = self._decode(action_vector)
             result["n_best"] = i
-            best_results.append(result)
+            self.results.append(result)
 
-        return best_results
+    def results_df(self) -> pd.DataFrame:
+        if not self.results:
+            raise AttributeError("Cannot access results. Run study.optimize() to generate.")
+
+        processed_results = []
+
+        for result in self.results:
+            row = result.copy()
+            params = row.pop("params")
+
+            for key, value in params.items():
+                if isinstance(value, list):
+                    for i, v in enumerate(value):
+                        row[f"params_{key}_{i}"] = v
+                else:
+                    row[f"params_{key}"] = value
+
+            processed_results.append(row)
+
+        return pd.DataFrame(processed_results)

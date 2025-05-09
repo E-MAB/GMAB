@@ -17,6 +17,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from evobandits import ALGORITHM_DEFAULT, EvoBandits, Study
+from pandas.testing import assert_frame_equal
 
 from tests._functions import clustering as cl
 from tests._functions import rosenbrock as rb
@@ -94,6 +95,41 @@ def test_optimize(objective, params, trials, kwargs):
 
     # Optimize a study and verify results
     with expectation:
-        result = study.optimize(objective, params, trials, **kwargs)
-        assert result == exp_result
+        study.optimize(objective, params, trials, **kwargs)
+
+        print(study.results)
+        print(exp_result)
+
+        assert study.results == exp_result
         assert mock_algorithm.optimize.call_count == 1  # Always run algorithm once for now
+
+
+@pytest.mark.parametrize(
+    "study_results, exp_df, kwargs",
+    [
+        [rb.BEST_TRIAL_2D, rb.TRIALS_DF_2D, {}],
+        [cl.BEST_TRIAL_EXAMPLE, cl.TRIALS_DF, {}],
+        [[], None, {"exp": pytest.raises(AttributeError)}],  # unsafe, if study was not optimized
+    ],
+    ids=[
+        "valid_default_testcase",
+        "valid_clustering_testcase",
+        "invalid_no_results",
+    ],
+)
+def test_results_df(study_results, exp_df, kwargs):
+    # Mock dependencies
+    # Per default, and expected results from the rosenbrock testcase are used to mock EvoBandits.
+    mock_algorithm = MagicMock()
+    study = Study(seed=42, algorithm=mock_algorithm)  # seeding to avoid warning log
+    study.results = study_results
+
+    # Extract expected exceptions
+    expectation = kwargs.pop("exp", nullcontext())
+
+    # Extract the results dataframe and verify
+    with expectation:
+        df = study.results_df()
+        print(df)
+        assert_frame_equal(df, exp_df)
+        assert study.results == study_results  # this must not affect the storage

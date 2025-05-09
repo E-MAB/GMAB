@@ -23,8 +23,8 @@ Last accessed: 2025-04-18
 Version: 1.6.1
 """
 
-# import pandas as pd
 import numpy as np
+import pandas as pd
 from evobandits import Arm, CategoricalParam, FloatParam, IntParam
 from sklearn.cluster import KMeans, MiniBatchKMeans
 from sklearn.datasets import make_blobs
@@ -62,7 +62,28 @@ BEST_TRIAL_EXAMPLE = [
         },
     },
 ]
-# TRIALS_DF = pd.DataFrame(BEST_TRIAL_EXAMPLE)
+TRIALS_DF = pd.DataFrame(
+    [
+        {
+            "n_best": 1,
+            "mean_reward": 0.0,
+            "num_pulls": 0,
+            "params_algorithm": KMeans,
+            "params_init": "k-means++",
+            "params_n_clusters": 4,
+            "params_tol": 0.0001,
+        },
+        {
+            "n_best": 2,
+            "mean_reward": 0.0,
+            "num_pulls": 0,
+            "params_algorithm": KMeans,
+            "params_init": "k-means++",
+            "params_n_clusters": 3,
+            "params_tol": 0.0001,
+        },
+    ]
+)
 
 
 # Generate sample data
